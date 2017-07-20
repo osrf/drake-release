@@ -1,0 +1,77 @@
+# -*- python -*-
+# This file contains rules for Bazel; see drake/doc/bazel.rst.
+
+# This file is named BUILD.bazel instead of the more typical BUILD, so that on
+# OSX it won't conflict with a build artifacts directory named "build".
+
+load("//tools:bazel_lint.bzl", "bazel_lint")
+load("//tools:check_licenses.bzl", "check_licenses")
+load("//tools:install.bzl", "install", "install_files")
+
+package(
+    default_visibility = ["//visibility:public"],
+)
+
+exports_files([
+    "CPPLINT.cfg",
+    ".clang-format",
+    ".drake-resource-sentinel",
+])
+
+alias(
+    name = "protoc",
+    actual = "@protobuf//:protoc",
+)
+
+alias(
+    name = "protobuf",
+    actual = "@protobuf//:protobuf",
+)
+
+alias(
+    name = "protobuf_python",
+    actual = "@protobuf//:protobuf_python",
+)
+
+DRAKE_EXTERNAL_PACKAGE_INSTALLS = ["@%s//:install" % p for p in [
+    "bullet",
+    "ccd",
+    "eigen",
+    "fcl",
+    "fmt",
+    "ignition_math",
+    "ignition_rndf",
+    "ipopt",
+    "lcm",
+    "lcmtypes_bot2_core",
+    "lcmtypes_robotlocomotion",
+    "libbot",
+    "nlopt",
+    "octomap",
+    "pybind11",
+    "sdformat",
+    "spdlog",
+    "tinyobjloader",
+    "vtk",
+    "yaml_cpp",
+]] + ["//tools/install/%s:install" % p for p in [
+    "gflags",
+    "jchart2d",
+    "optitrack_driver",
+    "protobuf",
+]]
+
+install(
+    name = "install",
+    docs = ["LICENSE.TXT"],
+    deps = [
+        "//drake:install",
+        "//drake/common:install",
+        "//drake/lcmtypes:install",
+        "//tools:install",
+    ] + DRAKE_EXTERNAL_PACKAGE_INSTALLS,
+)
+
+check_licenses(DRAKE_EXTERNAL_PACKAGE_INSTALLS + [":install"])
+
+bazel_lint()
