@@ -3,6 +3,17 @@
 %:
 	dh $@
 
+override_dh_auto_clean:
+	bazel clean
+
+override_dh_auto_configure:
+	# no configure step for bazel afaict
+	true
+
 override_dh_auto_build:
-	echo boop
+	# This is probably more than we need for the packaging job but we can thin it out later.
+	bazel build //...
+
+override_dh_auto_install:
+	bazel run :install -- /opt/drake-0.0.0
 
