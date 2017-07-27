@@ -1,0 +1,7 @@
+Format: http://www.debian.org/doc/packaging-manuals/copyright-format/1.0/
+Source: https://github.com/RobotLocomotion/drake
+
+Files: *
+Copyright: 2012-2016 Robot Locomotion Group @ CSAIL
+License: BSD-3-clause
+
