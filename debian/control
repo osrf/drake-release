@@ -1,6 +1,6 @@
 Source: drake
-Maintainer: Jose Luis Rivero <jrivero@openrobotics.org>
-Uploaders:  Jose Luis Rivero <jrivero@openrobotics.org>, Steven! Ragnarök <steven@openrobotics.org>
+Maintainer: Steven! Ragnarök <steven@openrobotics.org>
+Uploaders:  Jose Luis Rivero <jrivero@openrobotics.org>
 Section: misc
 Priority: optional
 Standards-version: 3.9.7
