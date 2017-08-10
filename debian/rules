@@ -15,5 +15,4 @@ override_dh_auto_build:
 	bazel build //...
 
 override_dh_auto_install:
-	bazel run :install -- /opt/drake-0.0.0
-
+	bazel run :install -- $(CURDIR)/debian/drake/

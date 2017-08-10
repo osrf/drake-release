@@ -1,5 +1,5 @@
-drake (0.0.0-0) UNRELEASED; urgency=medium
+drake (0.9.11+20170720r4785bd9-1) xenial; urgency=medium
 
-  * 0.0.0-0
+  * 0.9.11+20170720r4785bd9-1
 
- -- MAINTAINER <steven@openrobotics.org>  Thu, 27 Jul 2017 07:21:42 +0000
+ -- Jose Luis Rivero <jrivero@openrobotics.org>  Thu, 27 Jul 2017 07:21:42 +0000
