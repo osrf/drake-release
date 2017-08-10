@@ -27,6 +27,9 @@ target_link_libraries(eigen_matrix_compare_test drakeCommon)
 drake_add_cc_test(eigen_stl_types_test)
 target_link_libraries(eigen_stl_types_test Eigen3::Eigen)
 
+drake_add_cc_test(eigen_types_test)
+target_link_libraries(eigen_types_test drakeCommon)
+
 drake_add_cc_test(extract_double_test)
 target_link_libraries(extract_double_test drakeCommon)
 
@@ -35,9 +38,6 @@ target_link_libraries(extract_double_test drakeCommon)
 #   drake_add_cc_test(find_resource_test)
 add_executable(find_resource_test find_resource_test.cc)
 target_link_libraries(find_resource_test drakeCommon GTest::GTest GTest::Main)
-
-drake_add_cc_test(functional_form_test)
-target_link_libraries(functional_form_test drakeCommon)
 
 drake_add_cc_test(is_approx_equal_abstol_test)
 target_link_libraries(is_approx_equal_abstol_test drakeCommon)

@@ -3,7 +3,8 @@
 
 package(default_visibility = ["//visibility:public"])
 
-load("//tools:install.bzl", "install")
+load("@drake//tools:install.bzl", "install")
+load("//tools:lint.bzl", "add_lint_tests")
 load("//tools:transitive_hdrs.bzl", "transitive_hdrs_library")
 
 # Should include everything any consumer of Drake would ever need.
@@ -11,7 +12,8 @@ load("//tools:transitive_hdrs.bzl", "transitive_hdrs_library")
 # any new external dependencies to :external_licenses.
 
 # This is the *sorted* output of the following Bazel query:
-# bazel query 'kind("cc_library", visible("//drake:libdrake.so", "//drake/..."))
+# bazel query 'kind("cc_library",
+# visible("//drake:libdrake.so", "//drake/..."))
 # except("//drake/examples/...")
 # except(attr("testonly", "1", "//drake/..."))
 # except("//drake/lcmtypes/...")
@@ -56,7 +58,6 @@ _LIBDRAKE_COMPONENTS = [
     "//drake/common:eigen_autodiff_limits",
     "//drake/common:extract_double",
     "//drake/common:find_resource",
-    "//drake/common:functional_form",
     "//drake/common:is_approx_equal_abstol",
     "//drake/common:is_cloneable",
     "//drake/common:nice_type_name",
@@ -66,7 +67,6 @@ _LIBDRAKE_COMPONENTS = [
     "//drake/common:scoped_singleton",
     "//drake/common:sorted_vectors_have_intersection",
     "//drake/common:symbolic",
-    "//drake/common:symbolic_monomial",
     "//drake/common:text_logging_gflags",
     "//drake/common/proto:protobuf",
     "//drake/common/trajectories:piecewise_function",
@@ -91,7 +91,7 @@ _LIBDRAKE_COMPONENTS = [
     "//drake/manipulation/util:robot_state_msg_translator",
     "//drake/manipulation/util:trajectory_utils",
     "//drake/math:autodiff",
-    "//drake/math:continuous_algebraic_ricatti_equation",
+    "//drake/math:continuous_algebraic_riccati_equation",
     "//drake/math:discrete_algebraic_riccati_equation",
     "//drake/math:eigen_sparse_triplet",
     "//drake/math:evenly_distributed_pts_on_sphere",
@@ -106,8 +106,7 @@ _LIBDRAKE_COMPONENTS = [
     "//drake:mosek_deps",
     "//drake/multibody:approximate_ik",
     "//drake/multibody/benchmarks/acrobot:acrobot",
-    "//drake/multibody/benchmarks/kuka_iiwa_robot:kuka_iiwa_robot",
-    "//drake/multibody/benchmarks/mass_damper_spring:mass_damper_spring_analytical_solution",
+    "//drake/multibody/benchmarks/mass_damper_spring:mass_damper_spring_analytical_solution",  # noqa
     "//drake/multibody/collision:bullet_collision",
     "//drake/multibody/collision:collision_api",
     "//drake/multibody/collision:fcl_collision",
@@ -144,7 +143,7 @@ _LIBDRAKE_COMPONENTS = [
     "//drake/multibody/rigid_body_plant:rigid_body_plant_that_publishes_xdot",
     "//drake/multibody:rigid_body_tree",
     "//drake/multibody:rigid_body_tree_construction",
-    "//drake/multibody/rigid_contact:rigid_contact",
+    "//drake/multibody/constraint:constraint",
     "//drake/multibody/shapes:shapes",
     "//drake/solvers:binding",
     "//drake/solvers:constraint",
@@ -215,7 +214,7 @@ _LIBDRAKE_COMPONENTS = [
     "//drake/systems/framework:output_port_value",
     "//drake/systems/framework:parameters",
     "//drake/systems/framework:single_output_vector_source",
-    "//drake/systems/framework:siso_vector_system",
+    "//drake/systems/framework:vector_system",
     "//drake/systems/framework:sparsity_matrix",
     "//drake/systems/framework:state",
     "//drake/systems/framework:system",
@@ -297,9 +296,9 @@ cc_binary(
 # (i.e. in Drake itself; not externals).
 install(
     name = "install",
-    guess_hdrs = "WORKSPACE",
-    hdr_dest = "include/drake",
     targets = ["libdrake.so"],
+    hdr_dest = "include/drake",
+    guess_hdrs = "WORKSPACE",
     deps = ["//drake/bindings:install"],
 )
 
@@ -366,3 +365,5 @@ cc_library(
         ":vtk_deps",
     ],
 )
+
+add_lint_tests()

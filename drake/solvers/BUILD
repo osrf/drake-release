@@ -1,7 +1,6 @@
 # -*- python -*-
 # This file contains rules for Bazel; see drake/doc/bazel.rst.
 
-load("//tools:cpplint.bzl", "cpplint")
 load(
     "//tools:drake.bzl",
     "drake_cc_binary",
@@ -9,6 +8,7 @@ load(
     "drake_cc_library",
 )
 load("//tools:gurobi.bzl", "gurobi_test_tags")
+load("//tools:lint.bzl", "add_lint_tests")
 load("//tools:mosek.bzl", "mosek_test_tags")
 
 package(default_visibility = ["//visibility:public"])
@@ -56,8 +56,6 @@ drake_cc_library(
         "//drake/common:number_traits",
         "//drake/common:polynomial",
         "//drake/common:symbolic",
-        "//drake/common:symbolic_monomial",
-        "//drake/common:symbolic_polynomial",
     ],
 )
 
@@ -72,7 +70,6 @@ drake_cc_library(
         "//drake/common",
         "//drake/common:polynomial",
         "//drake/common:symbolic",
-        "//drake/common:symbolic_monomial",
     ],
 )
 
@@ -87,8 +84,6 @@ drake_cc_library(
         "//drake/common",
         "//drake/common:polynomial",
         "//drake/common:symbolic",
-        "//drake/common:symbolic_monomial",
-        "//drake/common:symbolic_polynomial",
         "//drake/common:unused",
     ],
 )
@@ -156,20 +151,6 @@ drake_cc_library(
     ],
 )
 
-# Supported solvers:
-# - equality_constrained_qp_solver
-# - linear_system_solver
-# - moby_lcp_solver
-# - IPOPT
-# - MOSEK
-# - NLOPT
-# - SNOPT
-# - Gurobi (on Ubuntu only)
-
-# Unsupported solvers:
-# - dReal
-
-# TODO(jwnimmer-tri, david-german-tri): Support more solvers.
 drake_cc_library(
     name = "mathematical_program",
     srcs = [
@@ -199,8 +180,6 @@ drake_cc_library(
         "//drake/common:number_traits",
         "//drake/common:polynomial",
         "//drake/common:symbolic",
-        "//drake/common:symbolic_monomial",
-        "//drake/common:symbolic_polynomial",
     ],
 )
 
@@ -211,7 +190,15 @@ drake_cc_library(
     deps = [
         ":decision_variable",
         "//drake/common:symbolic",
-        "//drake/common:symbolic_polynomial",
+    ],
+)
+
+drake_cc_library(
+    name = "integer_optimization_util",
+    srcs = ["integer_optimization_util.cc"],
+    hdrs = ["integer_optimization_util.h"],
+    deps = [
+        ":create_constraint",
     ],
 )
 
@@ -237,7 +224,9 @@ drake_cc_library(
         "rotation_constraint_internal.h",
     ],
     deps = [
+        ":bilinear_product_util",
         ":mathematical_program",
+        ":mixed_integer_optimization_util",
         "//drake/math:gradient",
     ],
 )
@@ -697,6 +686,14 @@ drake_cc_googletest(
 )
 
 drake_cc_googletest(
+    name = "integer_optimization_util_test",
+    deps = [
+        ":integer_optimization_util",
+        ":mathematical_program",
+    ],
+)
+
+drake_cc_googletest(
     name = "ipopt_solver_test",
     srcs = [
         "test/ipopt_solver_test.cc",
@@ -746,7 +743,7 @@ drake_cc_googletest(
         ":mathematical_program_test_util",
         "//drake/common:eigen_matrix_compare",
         "//drake/common:is_dynamic_castable",
-        "//drake/common:symbolic_polynomial",
+        "//drake/common:symbolic",
         "//drake/common:symbolic_test_util",
     ],
 )
@@ -812,6 +809,17 @@ drake_cc_googletest(
     tags = gurobi_test_tags() + mosek_test_tags() + ["no_tsan"],
     deps = [
         ":gurobi_solver",
+        ":mathematical_program",
+        ":rotation_constraint",
+        "//drake/common:eigen_matrix_compare",
+        "//drake/math:geometric_transform",
+    ],
+)
+
+drake_cc_googletest(
+    name = "rotation_constraint_internal_test",
+    tags = mosek_test_tags() + gurobi_test_tags() + ["no_tsan"],
+    deps = [
         ":mathematical_program",
         ":rotation_constraint",
         "//drake/common:eigen_matrix_compare",
@@ -910,9 +918,9 @@ drake_cc_googletest(
     ],
 )
 
-# The extra_srcs are required here because cpplint() doesn't understand how to
-# extract labels from select() functions yet.
-cpplint(extra_srcs = [
+# The extra_srcs are required here because add_lint_tests() doesn't understand
+# how to extract labels from select() functions yet.
+add_lint_tests(cpplint_extra_srcs = [
     "fast_qp.h",
     "gurobi_qp.h",
     "gurobi_solver.cc",

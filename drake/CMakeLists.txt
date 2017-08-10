@@ -77,13 +77,20 @@ if(CMAKE_CXX_COMPILER_ID MATCHES "Clang")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=inconsistent-missing-override")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=sign-compare")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=return-stack-address")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=non-virtual-dtor")
 else()
   # TODO(jwnimmer-tri) Get a similar complement of flags working on clang.
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=extra")
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=return-local-addr")
-  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter")
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Werror=non-virtual-dtor")
   # TODO(jwnimmer-tri) Fix these warnings and remove this suppression.
   set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-missing-field-initializers")
+  # This is only intended for tests, but is included for the entire build
+  # in CMake since there is not an easy mechanism to enable this only for
+  # tests.
+  set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-unused-parameter")
+  # TODO(#2852) Turn on shadow checking for g++ once we use a version that
+  # fixes https://gcc.gnu.org/bugzilla/show_bug.cgi?id=57709
 endif()
 set(CXX_FLAGS_NO_ERROR_SHADOW -Wno-error=shadow -Wno-shadow)
 set(CXX_FLAGS_NO_SIGN_COMPARE -Wno-sign-compare)
@@ -125,11 +132,10 @@ if(pybind11_FOUND AND NOT DISABLE_PYTHON AND NUMPY_FOUND)
   endif()
 endif()
 if(Matlab_FOUND)
-  add_subdirectory(thirdParty/bsd/GetFullPath)
   add_subdirectory(matlab)
 endif()
 
-add_subdirectory(examples/Atlas)
+add_subdirectory(examples/atlas)
 add_subdirectory(examples/kuka_iiwa_arm)
 
 option(ENABLE_DOCUMENTATION "Enable build target for Doxygen and Sphinx documentation." ON)

@@ -1,8 +1,9 @@
-#include "drake/common/symbolic_expression.h"
-
+// NOLINTNEXTLINE(build/include): Its header file is included in symbolic.h.
 #include <algorithm>
 #include <cmath>
 #include <cstddef>
+#include <ios>
+#include <limits>
 #include <map>
 #include <memory>
 #include <stdexcept>
@@ -13,22 +14,23 @@
 
 #include "drake/common/drake_assert.h"
 #include "drake/common/never_destroyed.h"
-#include "drake/common/symbolic_environment.h"
+#include "drake/common/symbolic.h"
+#define DRAKE_COMMON_SYMBOLIC_DETAIL_HEADER
 #include "drake/common/symbolic_expression_cell.h"
-#include "drake/common/symbolic_formula.h"
-#include "drake/common/symbolic_variable.h"
-#include "drake/common/symbolic_variables.h"
+#undef DRAKE_COMMON_SYMBOLIC_DETAIL_HEADER
 
 namespace drake {
 namespace symbolic {
 
 using std::make_shared;
 using std::map;
+using std::numeric_limits;
 using std::ostream;
 using std::ostringstream;
 using std::pair;
 using std::runtime_error;
 using std::shared_ptr;
+using std::streamsize;
 using std::string;
 using std::vector;
 
@@ -150,7 +152,7 @@ bool Expression::is_polynomial() const {
   return ptr_->is_polynomial();
 }
 
-Polynomial<double> Expression::ToPolynomial() const {
+Polynomiald Expression::ToPolynomial() const {
   DRAKE_ASSERT(ptr_ != nullptr);
   return ptr_->ToPolynomial();
 }
@@ -497,8 +499,28 @@ Expression& operator/=(Expression& lhs, const Expression& rhs) {
   return lhs;
 }
 
+namespace {
+// Changes the precision of `os` to be the `new_precision` and saves the
+// original precision so that it can be reverted when an instance of this class
+// is destructed. It is used in `operator<<` of symbolic expression.
+class PrecisionGuard {
+ public:
+  PrecisionGuard(ostream* const os, const streamsize& new_precision)
+      : os_{os}, original_precision_{os->precision()} {
+    os_->precision(new_precision);
+  }
+  ~PrecisionGuard() { os_->precision(original_precision_); }
+
+ private:
+  ostream* const os_;
+  const streamsize original_precision_;
+};
+}  // namespace
+
 ostream& operator<<(ostream& os, const Expression& e) {
   DRAKE_ASSERT(e.ptr_ != nullptr);
+  const PrecisionGuard precision_guard{&os,
+                                       numeric_limits<double>::max_digits10};
   return e.ptr_->Display(os);
 }
 

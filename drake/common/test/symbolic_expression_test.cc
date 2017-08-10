@@ -1,5 +1,3 @@
-#include "drake/common/symbolic_expression.h"
-
 #include <algorithm>
 #include <cmath>
 #include <functional>
@@ -17,10 +15,7 @@
 #include <gtest/gtest.h>
 
 #include "drake/common/hash.h"
-#include "drake/common/symbolic_environment.h"
-#include "drake/common/symbolic_formula.h"
-#include "drake/common/symbolic_variable.h"
-#include "drake/common/symbolic_variables.h"
+#include "drake/common/symbolic.h"
 #include "drake/common/test/is_memcpy_movable.h"
 #include "drake/common/test/symbolic_test_util.h"
 
@@ -529,7 +524,7 @@ TEST_F(SymbolicExpressionTest, IsPolynomial) {
 
 TEST_F(SymbolicExpressionTest, ToPolynomial1) {
   Environment env{{var_x_, 1.0}, {var_y_, 2.0}, {var_z_, 3.0}};
-  const map<Polynomial<double>::VarType, double> eval_point{
+  const map<Polynomiald::VarType, double> eval_point{
       {var_x_.get_id(), env[var_x_]},
       {var_y_.get_id(), env[var_y_]},
       {var_z_.get_id(), env[var_z_]}};
@@ -1813,9 +1808,15 @@ TEST_F(SymbolicExpressionTest, Swap) {
 TEST_F(SymbolicExpressionTest, ToString) {
   const Expression e1{sin(x_ + y_ * z_)};
   const Expression e2{cos(x_ * x_ + pow(y_, 2) * z_)};
+  const Expression e3{M_PI * x_ * pow(y_, M_E)};
+  const Expression e4{M_E + x_ + M_PI * y_};
 
   EXPECT_EQ(e1.to_string(), "sin((x + (y * z)))");
   EXPECT_EQ(e2.to_string(), "cos(((pow(y, 2) * z) + pow(x, 2)))");
+  EXPECT_EQ(e3.to_string(),
+            "(3.1415926535897931 * x * pow(y, 2.7182818284590451))");
+  EXPECT_EQ(e4.to_string(),
+            "(2.7182818284590451 + x + 3.1415926535897931 * y)");
   EXPECT_EQ(e_uf_.to_string(), "uf({x, y})");
 }
 

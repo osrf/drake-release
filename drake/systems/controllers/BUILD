@@ -1,8 +1,8 @@
 # -*- python -*-
 # This file contains rules for Bazel; see drake/doc/bazel.rst.
 
-load("//tools:cpplint.bzl", "cpplint")
 load("//tools:drake.bzl", "drake_cc_googletest", "drake_cc_library")
+load("//tools:lint.bzl", "add_lint_tests")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -48,7 +48,7 @@ drake_cc_library(
     hdrs = ["linear_quadratic_regulator.h"],
     deps = [
         "//drake/common:is_approx_equal_abstol",
-        "//drake/math:continuous_algebraic_ricatti_equation",
+        "//drake/math:continuous_algebraic_riccati_equation",
         "//drake/systems/framework",
         "//drake/systems/primitives:linear_system",
     ],
@@ -74,6 +74,16 @@ drake_cc_library(
         "//drake/systems/primitives:adder",
         "//drake/systems/primitives:constant_vector_source",
         "//drake/systems/primitives:saturation",
+    ],
+)
+
+drake_cc_library(
+    name = "setpoint",
+    srcs = ["setpoint.cc"],
+    hdrs = ["setpoint.h"],
+    deps = [
+        "//drake/common",
+        "//drake/math:geometric_transform",
     ],
 )
 
@@ -154,12 +164,22 @@ drake_cc_library(
     ],
 )
 
+drake_cc_library(
+    name = "zmp_test_util",
+    testonly = 1,
+    srcs = ["test/zmp_test_util.cc"],
+    hdrs = ["test/zmp_test_util.h"],
+    deps = [
+        ":zmp_planner",
+    ],
+)
+
 # === test/ ===
 
 drake_cc_googletest(
     name = "inverse_dynamics_test",
     data = [
-        "//drake/examples/SimpleFourBar:models",
+        "//drake/examples/simple_four_bar:models",
         "//drake/manipulation/models/iiwa_description:models",
     ],
     deps = [
@@ -207,9 +227,26 @@ drake_cc_googletest(
     ],
 )
 
-# The extra_srcs are required here because cpplint() doesn't understand how to
-# extract labels from select() functions yet.
-cpplint(extra_srcs = [
+drake_cc_googletest(
+    name = "setpoint_test",
+    srcs = ["test/setpoint_test.cc"],
+    deps = [
+        ":setpoint",
+        "//drake/common:eigen_matrix_compare",
+    ],
+)
+
+drake_cc_googletest(
+    name = "zmp_planner_test",
+    deps = [
+        ":zmp_test_util",
+        "//drake/common:eigen_matrix_compare",
+    ],
+)
+
+# The extra_srcs are required here because add_lint_tests() doesn't understand
+# how to extract labels from select() functions yet.
+add_lint_tests(cpplint_extra_srcs = [
     "InstantaneousQPController.cpp",
     "InstantaneousQPController.h",
 ])
