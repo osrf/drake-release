@@ -6,10 +6,10 @@
 #include <gtest/gtest.h>
 
 #include "drake/common/find_resource.h"
-#include "drake/multibody/constraint/rigid_body_constraint.h"
 #include "drake/multibody/ik_options.h"
 #include "drake/multibody/joints/floating_base_types.h"
 #include "drake/multibody/parsers/urdf_parser.h"
+#include "drake/multibody/rigid_body_constraint.h"
 #include "drake/multibody/rigid_body_ik.h"
 #include "drake/multibody/rigid_body_tree.h"
 
@@ -24,7 +24,7 @@ GTEST_TEST(testIKtraj, testIKtraj) {
   auto model = std::make_unique<RigidBodyTree<double>>();
   drake::parsers::urdf::AddModelInstanceFromUrdfFileToWorld(
       FindResourceOrThrow(
-          "drake/examples/Atlas/urdf/atlas_minimal_contact.urdf"),
+          "drake/examples/atlas/urdf/atlas_minimal_contact.urdf"),
       drake::multibody::joints::kRollPitchYaw, model.get());
 
   int r_hand{};

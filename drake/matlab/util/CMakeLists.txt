@@ -1,33 +1,11 @@
 if(Matlab_FOUND)
-  # Used by matlab/util/systemWCMakeEnv.m
-  if(APPLE)
-    if(DEFINED ENV{DYLD_LIBRARY_PATH})
-      set(DYLD_LIBRARY_PATH "$ENV{DYLD_LIBRARY_PATH}" CACHE INTERNAL "" FORCE)
-    else()
-      set(DYLD_LIBRARY_PATH "" CACHE INTERNAL "" FORCE)
-    endif()
-    if(DEFINED ENV{DYLD_FRAMEWORK_PATH})
-      set(DYLD_FRAMEWORK_PATH "$ENV{DYLD_FRAMEWORK_PATH}" CACHE INTERNAL "" FORCE)
-    else()
-      set(DYLD_FRAMEWORK_PATH "" CACHE INTERNAL "" FORCE)
-    endif()
-  else()
-    if(DEFINED ENV{LD_LIBRARY_PATH})
-      set(LD_LIBRARY_PATH "$ENV{LD_LIBRARY_PATH}" CACHE INTERNAL "" FORCE)
-    else()
-      set(LD_LIBRARY_PATH "" CACHE INTERNAL "" FORCE)
-    endif()
-  endif()
-
-  drake_add_mex(drakeMexUtil SHARED drakeMexUtil.cpp MexWrapper.cpp)
+  drake_add_mex(drakeMexUtil SHARED
+    mex_util.cc
+    mex_util.h)
   target_link_libraries(drakeMexUtil Eigen3::Eigen)
 
-  drake_install_headers(drakeMexUtil.h MexWrapper.h)
+  drake_install_headers(mex_util.h)
   drake_install_libraries(drakeMexUtil)
-  drake_install_pkg_config_file(drake-mex-util
-    TARGET drakeMexUtil
-    LIBS -ldrakeMexUtil
-    REQUIRES drake-common)
 
   if(lcm_FOUND)
     drake_add_mex(call_matlab_client call_matlab_client.cc)
@@ -40,8 +18,3 @@ if(Matlab_FOUND)
   endif()
 endif()
 
-add_subdirectory(geometry/test)
-
-if(BUILD_TESTING)
-  add_subdirectory(test)
-endif()

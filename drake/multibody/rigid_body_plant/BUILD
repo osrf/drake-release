@@ -1,8 +1,8 @@
 # -*- python -*-
 # This file contains rules for Bazel; see drake/doc/bazel.rst.
 
-load("//tools:cpplint.bzl", "cpplint")
 load("//tools:drake.bzl", "drake_cc_googletest", "drake_cc_library")
+load("//tools:lint.bzl", "add_lint_tests")
 
 package(default_visibility = ["//visibility:public"])
 
@@ -116,6 +116,17 @@ drake_cc_library(
     ],
 )
 
+drake_cc_library(
+    name = "frame_visualizer",
+    srcs = ["frame_visualizer.cc"],
+    hdrs = ["frame_visualizer.h"],
+    deps = [
+        "//drake/lcmtypes:viewer",
+        "//drake/multibody:rigid_body_tree",
+        "//drake/systems/lcm",
+    ],
+)
+
 drake_cc_googletest(
     name = "contact_detail_test",
     deps = [
@@ -193,6 +204,19 @@ drake_cc_googletest(
 )
 
 drake_cc_googletest(
+    name = "frame_visualizer_test",
+    data = [
+        "//drake/manipulation/models/iiwa_description:models",
+    ],
+    deps = [
+        ":frame_visualizer",
+        "//drake/common:find_resource",
+        "//drake/lcm:mock",
+        "//drake/multibody/parsers",
+    ],
+)
+
+drake_cc_googletest(
     name = "kinematics_results_test",
     data = ["//drake/multibody:test_models"],
     deps = [
@@ -251,4 +275,4 @@ filegroup(
     ]),
 )
 
-cpplint()
+add_lint_tests()

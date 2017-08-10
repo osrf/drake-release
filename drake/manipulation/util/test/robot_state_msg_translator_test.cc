@@ -153,7 +153,7 @@ class RobotStateLcmMessageTranslatorTest : public ::testing::Test {
   }
 
   multibody::joints::FloatingBaseType base_type_;
-  bot_core::robot_state_t message_;
+  bot_core::robot_state_t message_{};
   // Same seed every time, but that's OK.
   std::default_random_engine rand_;
   std::unique_ptr<RobotStateLcmMessageTranslator> dut_;
@@ -171,7 +171,7 @@ TEST_F(RobotStateLcmMessageTranslatorTest, TestEncodeDecode) {
           "drake/manipulation/models/iiwa_description/urdf/"
           "iiwa14_polytope_collision.urdf"),
       FindResourceOrThrow(
-          "drake/examples/Valkyrie/urdf/urdf/"
+          "drake/examples/valkyrie/urdf/urdf/"
           "valkyrie_A_sim_drake_one_neck_dof_wide_ankle_rom.urdf")};
 
   std::vector<multibody::joints::FloatingBaseType> floating_types = {

@@ -1,4 +1,4 @@
-/* clang-format off */
+/* clang-format off to disable clang-format-includes */
 #include "drake/solvers/rotation_constraint.h"
 #include "drake/solvers/rotation_constraint_internal.h"
 /* clang-format on */
@@ -9,6 +9,7 @@
 #include <limits>
 
 #include "drake/math/cross_product.h"
+#include "drake/solvers/bilinear_product_util.h"
 
 using std::numeric_limits;
 using drake::symbolic::Expression;
@@ -839,14 +840,11 @@ void AddMcCormickVectorConstraints(
  * Similarly we can impose the constraint on the other orthant.
  * @param prog Add the constraint to this mathematical program.
  * @param Bpos0 Defined in AddRotationMatrixMcCormickEnvelopeMilpConstraints(),
- * Bpos0(i,j) = 1 => R(i, j) >= 0.
- * @param Bneg0 Defined in AddRotationMatrixMcCormickEnvelopeMilpConstraints(),
- * Bneg0(i,j) = 1 => R(i, j) <= 0.
+ * Bpos0(i,j) = 1 => R(i, j) >= 0. Bpos0(i, j) = 0 => R(i, j) <= 0.
  */
 void AddNotInSameOrOppositeOrthantConstraint(
     MathematicalProgram* prog,
-    const Eigen::Ref<const MatrixDecisionVariable<3, 3>>& Bpos0,
-    const Eigen::Ref<const MatrixDecisionVariable<3, 3>>& Bneg0) {
+    const Eigen::Ref<const MatrixDecisionVariable<3, 3>>& Bpos0) {
   const std::array<std::pair<int, int>, 3> column_idx = {
       {{0, 1}, {0, 2}, {1, 2}}};
   for (const auto& column_pair : column_idx) {
@@ -861,8 +859,8 @@ void AddNotInSameOrOppositeOrthantConstraint(
       // orthants, we will impose the constraint
       // vars_oppo_orthant.sum() <= 5. The variables in vars_oppo_orthant
       // depnd on the orthant number o.
-      Vector6<symbolic::Variable> vars_same_orthant;
-      Vector6<symbolic::Variable> vars_oppo_orthant;
+      Vector6<symbolic::Expression> vars_same_orthant;
+      Vector6<symbolic::Expression> vars_oppo_orthant;
       for (int axis = 0; axis < 3; ++axis) {
         // axis chooses x, y, or z axis.
         if (o & (1 << axis)) {
@@ -871,20 +869,249 @@ void AddNotInSameOrOppositeOrthantConstraint(
           vars_same_orthant(2 * axis)     = Bpos0(axis, col_idx0);
           vars_same_orthant(2 * axis + 1) = Bpos0(axis, col_idx1);
           vars_oppo_orthant(2 * axis)     = Bpos0(axis, col_idx0);
-          vars_oppo_orthant(2 * axis + 1) = Bneg0(axis, col_idx1);
+          vars_oppo_orthant(2 * axis + 1) = 1 - Bpos0(axis, col_idx1);
         } else {
           // If the orthant has negative value along the `axis`, then
-          // `vars_same_orthant` choose the negative component Bneg0.
-          vars_same_orthant(2 * axis)     = Bneg0(axis, col_idx0);
-          vars_same_orthant(2 * axis + 1) = Bneg0(axis, col_idx1);
-          vars_oppo_orthant(2 * axis)     = Bneg0(axis, col_idx0);
+          // `vars_same_orthant` choose the negative component 1 - Bpos0.
+          vars_same_orthant(2 * axis)     = 1 - Bpos0(axis, col_idx0);
+          vars_same_orthant(2 * axis + 1) = 1 - Bpos0(axis, col_idx1);
+          vars_oppo_orthant(2 * axis)     = 1 - Bpos0(axis, col_idx0);
           vars_oppo_orthant(2 * axis + 1) = Bpos0(axis, col_idx1);
         }
       }
-      prog->AddLinearConstraint(Vector6<double>::Ones().transpose(), 0, 5,
-                                vars_same_orthant);
-      prog->AddLinearConstraint(Eigen::Matrix<double, 1, 6>::Ones(), 0, 5,
-                                vars_oppo_orthant);
+      prog->AddLinearConstraint(vars_same_orthant.sum() <= 5);
+      prog->AddLinearConstraint(vars_oppo_orthant.sum() <= 5);
+    }
+  }
+}
+
+// Relax the unit length constraint x₀² + x₁² + x₂² = 1, to a set of linear
+// constraints. The relaxation is achieved by assuming the intervals of xᵢ has
+// been cut into smaller intervals in the form [φ(i) φ(i+1)], and xᵢ is
+// constrained to be within one of the intervals. Namely we assume that
+// xᵢ = φᵀ * λᵢ, where λ is the auxiliary variables, satisfying the SOS2
+// constraint already.
+// We know that due to the convexity of the curve w = x², we get
+//     x² ≥ 2φⱼ*x-φⱼ²
+// where the right hand-side of the inequality is the tangent of the curve
+// w = x² at φⱼ. Thus we have 1 ≥ sum_j sum_i 2φⱼ*xᵢ-φⱼ²
+// Moreover, also due to the convexity of the curve w = x², we know
+//   xᵢ² ≤ sum_j φ(j)² * λᵢ(j)
+// So we have the constraint
+// 1 ≤ sum_i sum_j φ(j)² * λᵢ(j)
+void AddUnitLengthConstraintWithSos2Lambda(
+    MathematicalProgram* prog, const Eigen::Ref<const Eigen::VectorXd>& phi,
+    const Eigen::Ref<const VectorXDecisionVariable>& lambda0,
+    const Eigen::Ref<const VectorXDecisionVariable>& lambda1,
+    const Eigen::Ref<const VectorXDecisionVariable>& lambda2) {
+  const int num_phi = phi.rows();
+  DRAKE_ASSERT(num_phi == lambda0.rows());
+  DRAKE_ASSERT(num_phi == lambda1.rows());
+  DRAKE_ASSERT(num_phi == lambda2.rows());
+  const symbolic::Expression x0{phi.dot(lambda0.cast<symbolic::Expression>())};
+  const symbolic::Expression x1{phi.dot(lambda1.cast<symbolic::Expression>())};
+  const symbolic::Expression x2{phi.dot(lambda2.cast<symbolic::Expression>())};
+  for (int phi0_idx = 0; phi0_idx < num_phi; phi0_idx++) {
+    const symbolic::Expression x0_square_lb{2 * phi(phi0_idx) * x0 -
+                                            pow(phi(phi0_idx), 2)};
+    for (int phi1_idx = 0; phi1_idx < num_phi; phi1_idx++) {
+      const symbolic::Expression x1_square_lb{2 * phi(phi1_idx) * x1 -
+                                              pow(phi(phi1_idx), 2)};
+      for (int phi2_idx = 0; phi2_idx < num_phi; phi2_idx++) {
+        const symbolic::Expression x2_square_lb{2 * phi(phi2_idx) * x2 -
+                                                pow(phi(phi2_idx), 2)};
+        symbolic::Expression x_sum_of_squares_lb{x0_square_lb + x1_square_lb +
+                                                 x2_square_lb};
+        if (!is_constant(x_sum_of_squares_lb)) {
+          prog->AddLinearConstraint(x_sum_of_squares_lb <= 1);
+        }
+      }
+    }
+  }
+  symbolic::Expression x_square_ub{0};
+  for (int i = 0; i < num_phi; ++i) {
+    x_square_ub += phi(i) * phi(i) * (lambda0(i) + lambda1(i) + lambda2(i));
+  }
+  prog->AddLinearConstraint(x_square_ub >= 1);
+}
+
+std::pair<int, int> Index2Subscripts(int index, int num_rows, int num_cols) {
+  DRAKE_ASSERT(index >= 0 && index < num_rows * num_cols);
+  int column_index = index / num_rows;
+  int row_index = index - column_index * num_rows;
+  return std::make_pair(row_index, column_index);
+}
+
+// Relax the orthogonal constraint
+// R.col(i)ᵀ * R.col(j) = 0
+// R.row(i)ᵀ * R.row(j) = 0.
+// and the cross product constraint
+// R.col(i) x R.col(j) = R.col(k)
+// R.row(i) x R.row(j) = R.row(k)
+// To handle this non-convex bilinear product, we relax any bilinear product
+// in the form x * y, we relax (x, y, w) to be in the convex hull of the
+// curve w = x * y, and replace all the bilinear term x * y with w. For more
+// details, @see AddBilinearProductMcCormickEnvelopeSos2.
+template <int kNumIntervalsPerHalfAxis>
+void AddOrthogonalAndCrossProductConstraintRelaxationReplacingBilinearProduct(
+    MathematicalProgram* prog,
+    const Eigen::Ref<const MatrixDecisionVariable<3, 3>>& R,
+    const typename AddRotationMatrixBilinearMcCormickMilpConstraintsReturn<
+        kNumIntervalsPerHalfAxis>::PhiType& phi,
+    const typename AddRotationMatrixBilinearMcCormickMilpConstraintsReturn<
+        kNumIntervalsPerHalfAxis>::BinaryVarType& B,
+    const std::array<
+        std::array<VectorDecisionVariable<
+                       AddRotationMatrixBilinearMcCormickMilpConstraintsReturn<
+                           kNumIntervalsPerHalfAxis>::kPhiRows>,
+                   3>,
+        3>& lambda) {
+  VectorDecisionVariable<9> R_flat;
+  R_flat << R.col(0), R.col(1), R.col(2);
+  MatrixDecisionVariable<9, 9> W;
+  for (int i = 0; i < 9; ++i) {
+    int Ri_row, Ri_col;
+    std::tie(Ri_row, Ri_col) = Index2Subscripts(i, 3, 3);
+    for (int j = i + 1; j < 9; ++j) {
+      int Rj_row, Rj_col;
+      std::tie(Rj_row, Rj_col) = Index2Subscripts(j, 3, 3);
+      std::string W_ij_name =
+          "R(" + std::to_string(Ri_row) + "," + std::to_string(Ri_col) +
+          ")*R(" + std::to_string(Rj_row) + "," + std::to_string(Rj_col) + ")";
+      W(i, j) = prog->NewContinuousVariables<1>(W_ij_name)(0);
+
+      auto lambda_bilinear = AddBilinearProductMcCormickEnvelopeSos2(
+          prog, R(Ri_row, Ri_col), R(Rj_row, Rj_col), W(i, j), phi, phi,
+          B[Ri_row][Ri_col].template cast<symbolic::Expression>(),
+          B[Rj_row][Rj_col].template cast<symbolic::Expression>(),
+          IntervalBinning::kLogarithmic);
+      // Both sum_n lambda_bilinear(m, n) and sum_m lambda_bilinear(m, n)
+      // satisfy the SOS2 constraint, and
+      // R(Ri_row, Ri_col) = φᵀ * (sum_n lambda_bilinear(m, n))
+      // R(Rj_row, Rj_col) = φᵀ * (sum_m lambda_bilinear(m, n).transpose())
+      // Since we also know that both lambda[Ri_row][Ri_col] and
+      // lambda[Rj_row][Rj_col] satisfy the SOS2 constraint, and
+      // R[Ri_row][Ri_col] = φᵀ * lambda[Ri_row][Ri_col]
+      // R[Rj_row][Rj_col] = φᵀ * lambda[Rj_row][Rj_col]
+      // So sum_n lambda_bilinear(m, n) = lambda[Ri_row][Ri_col]
+      //    sum_m lambda_bilinear(m, n).transpose() = lambda[Rj_row][Rj_col]
+      prog->AddLinearConstraint(
+          lambda_bilinear.template cast<symbolic::Expression>()
+              .rowwise()
+              .sum() == lambda[Ri_row][Ri_col]);
+      prog->AddLinearConstraint(
+          lambda_bilinear.template cast<symbolic::Expression>()
+              .colwise()
+              .sum()
+              .transpose() == lambda[Rj_row][Rj_col]);
+      W(j, i) = W(i, j);
+    }
+  }
+  for (int i = 0; i < 3; ++i) {
+    for (int j = i + 1; j < 3; ++j) {
+      // Orthogonal constraint between R.col(i), R.col(j).
+      prog->AddLinearConstraint(
+          ReplaceBilinearTerms(
+              R.col(i).dot(R.col(j).cast<symbolic::Expression>()), R_flat,
+              R_flat, W) == 0);
+      // Orthogonal constraint between R.row(i), R.row(j)
+      prog->AddLinearConstraint(
+          ReplaceBilinearTerms(
+              R.row(i).transpose().dot(
+                  R.row(j).cast<symbolic::Expression>().transpose()),
+              R_flat, R_flat, W) == 0);
+    }
+  }
+
+  for (int i = 0; i < 3; ++i) {
+    int j = (i + 1) % 3;
+    int k = (i + 2) % 3;
+    Vector3<symbolic::Expression> cross_product1 =
+        R.col(i).cross(R.col(j).cast<symbolic::Expression>());
+    Vector3<symbolic::Expression> cross_product2 = R.row(i).transpose().cross(
+        R.row(j).transpose().cast<symbolic::Expression>());
+    for (int row = 0; row < 3; ++row) {
+      // R.col(i) x R.col(j) = R.col(k).
+      prog->AddLinearConstraint(ReplaceBilinearTerms(cross_product1(row),
+                                                     R_flat, R_flat,
+                                                     W) == R(row, k));
+      // R.row(i) x R.row(j) = R.row(k).
+      prog->AddLinearConstraint(ReplaceBilinearTerms(cross_product2(row),
+                                                     R_flat, R_flat,
+                                                     W) == R(k, row));
+    }
+  }
+}
+
+// For the cross product c = a x b, based on the sign of a and b, we can imply
+// the sign of c for some cases. For example, c0 = a1 * b2 - a2 * b1, so if
+// (a1, a2, b1, b2) has sign (+, -, +, +), then c0 has to have sign +.
+// @param Bpos0. Bpos0(i, j) = 1 => R(i, j) ≥ 0, Bpos0(i, j) = 0 => R(i, j) ≤ 0
+void AddCrossProductImpliedOrthantConstraint(
+    MathematicalProgram* prog,
+    const Eigen::Ref<const MatrixDecisionVariable<3, 3>>& Bpos0) {
+  // The vertices of the polytope {x | A * x <= b} correspond to valid sign
+  // assignment for (a1, b2, a2, b1, c0) in the example above.
+  // Since R.col(k) = R.col(i) x R.col(j), we then know that
+  // A * [Bpos0(1, i); Bpos0(2, j); Bpos0(1, j); Bpos0(2, i); Bpos0(0, k)] <= b.
+  // The matrix A and b is found, by considering the polytope, whose vertices
+  // are {0, 1}⁵, excluding the 8 points
+  // (a1, b2, a2, b1, c0)
+  // ( 0,  0,  1,  0,  0)
+  // ( 0,  0,  0,  1,  0)
+  // ( 1,  1,  1,  0,  0)
+  // ( 1,  1,  0,  1,  0)
+  // ( 1,  0,  0,  0,  1)
+  // ( 1,  0,  1,  1,  1)
+  // ( 0,  1,  0,  0,  1)
+  // ( 0,  1,  1,  1,  1)
+  // So this polytope has 2⁵ - 8 = 24 vertices in total.
+  // The matrix A and b are obtained by converting this polytope from its
+  // vertices (V-representation), to its facets (H-representation). We did
+  // this conversion through Multi-parametric toolbox. Here is the MATLAB code
+  // P = Polyhedron(V);
+  // P.computeHRep();
+  // A = P.A;
+  // b = P.b;
+  constexpr int A_rows = 18;
+  constexpr int A_cols = 5;
+  Eigen::Matrix<double, A_rows, A_cols> A;
+  Eigen::Matrix<double, A_rows, 1> b;
+  A << 0, 0, 0, 0, -1,
+       1, 1, 1, -1, -1,
+       1, 1, -1, 1, -1,
+       0, 0, -1, 0, 0,
+       -1, 0, 0, 0, 0,
+       -1, -1, -1, 1, -1,
+       -1, -1, 1, -1, -1,
+       0, -1, 0, 0, 0,
+       1, -1, -1, -1, 1,
+       -1, 1, -1, -1, 1,
+       0, 0, 0, -1, 0,
+       1, -1, 1, 1, 1,
+       -1, 1, 1, 1, 1,
+       0, 0, 0, 0, 1,
+       0, 0, 0, 1, 0,
+       0, 0, 1, 0, 0,
+       0, 1, 0, 0, 0,
+       1, 0, 0, 0, 0;
+  b << 0, 2, 2, 0, 0, 0, 0, 0, 1, 1, 0, 3, 3, 1, 1, 1, 1, 1;
+
+  for (int col0 = 0; col0 < 3; ++col0) {
+    int col1 = (col0 + 1) % 3;
+    int col2 = (col1 + 1) % 3;
+    // R(k, col2) = R(i, col0) * R(j, col1) - R(j, col0) * R(i, col1)
+    // where (i, j, k) = (0, 1, 2), (1, 2, 0) or (2, 0, 1)
+    VectorDecisionVariable<A_cols> var;
+    for (int i = 0; i < 3; ++i) {
+      int j = (i + 1) % 3;
+      int k = (j + 1) % 3;
+      var << Bpos0(i, col0), Bpos0(j, col1), Bpos0(j, col0), Bpos0(i, col1),
+          Bpos0(k, col2);
+      prog->AddLinearConstraint(A,
+                                Eigen::Matrix<double, A_rows, 1>::Constant(
+                                    -std::numeric_limits<double>::infinity()),
+                                b, var);
     }
   }
 }
@@ -973,9 +1200,8 @@ AddRotationMatrixMcCormickEnvelopeMilpConstraints(
 
   // Add constraint that no two rows (or two columns) can lie in the same
   // orthant (or opposite orthant).
-  AddNotInSameOrOppositeOrthantConstraint(prog, BRpos[0], BRneg[0]);
-  AddNotInSameOrOppositeOrthantConstraint(prog, BRpos[0].transpose(),
-                                          BRneg[0].transpose());
+  AddNotInSameOrOppositeOrthantConstraint(prog, BRpos[0]);
+  AddNotInSameOrOppositeOrthantConstraint(prog, BRpos[0].transpose());
 
   // Add angle limit constraints.
   // Bounding box will turn on/off an orthant.  It's sufficient to add the
@@ -1007,8 +1233,148 @@ AddRotationMatrixMcCormickEnvelopeMilpConstraints(
                                   R.row((i + 1) % 3).transpose(),
                                   R.row((i + 2) % 3).transpose());
   }
+
+  AddCrossProductImpliedOrthantConstraint(prog, BRpos[0]);
+  AddCrossProductImpliedOrthantConstraint(prog, BRpos[0].transpose());
+
   return make_tuple(CRpos, CRneg, BRpos, BRneg);
 }
 
+template <int kNumIntervalsPerHalfAxis>
+typename std::enable_if<
+    kNumIntervalsPerHalfAxis == Eigen::Dynamic ||
+        (kNumIntervalsPerHalfAxis >= 1 && kNumIntervalsPerHalfAxis <= 4),
+    typename AddRotationMatrixBilinearMcCormickMilpConstraintsReturn<
+        kNumIntervalsPerHalfAxis>::type>::type
+AddRotationMatrixBilinearMcCormickMilpConstraints(
+    MathematicalProgram* prog,
+    const Eigen::Ref<const MatrixDecisionVariable<3, 3>>& R,
+    int num_intervals_per_half_axis) {
+  typedef typename AddRotationMatrixBilinearMcCormickMilpConstraintsReturn<
+      kNumIntervalsPerHalfAxis>::BinaryVarType Btype;
+  typedef typename AddRotationMatrixBilinearMcCormickMilpConstraintsReturn<
+      kNumIntervalsPerHalfAxis>::PhiType PhiType;
+  DRAKE_DEMAND(num_intervals_per_half_axis == kNumIntervalsPerHalfAxis ||
+               kNumIntervalsPerHalfAxis == Eigen::Dynamic);
+  DRAKE_DEMAND(num_intervals_per_half_axis >= 1);
+  constexpr int kLambdaRows =
+      AddRotationMatrixBilinearMcCormickMilpConstraintsReturn<
+          kNumIntervalsPerHalfAxis>::kPhiRows;
+  PhiType phi =
+      Eigen::VectorXd::LinSpaced(2 * num_intervals_per_half_axis + 1, -1, 1);
+  phi(num_intervals_per_half_axis) = 0;
+
+  // Add the binary variables to determine in which interval R(i, j) lies.
+  // B[i][j] is a vector of binary variables. If these binary variables
+  // represent integer M in the reflected Gray code, then R(i, j) is within the
+  // interval [φ(M), φ(M + 1)]. Refer to AddLogarithmicSos2Constraint for more
+  // details. λ[i][j] is a vector of continuous variables. λ[i][j] satisfies
+  // SOS2 constraint, and R(i, j) = φᵀ * λ[i][j]
+  const int lambda_rows = 2 * num_intervals_per_half_axis + 1;
+  std::array<std::array<VectorDecisionVariable<kLambdaRows>, 3>, 3> lambda;
+  Btype B{};
+  for (int i = 0; i < 3; ++i) {
+    for (int j = 0; j < 3; ++j) {
+      const std::string lambda_name =
+          "lambda[" + std::to_string(i) + "][" + std::to_string(j) + "]";
+      lambda[i][j] = prog->NewContinuousVariables<kLambdaRows, 1>(
+          lambda_rows, 1, lambda_name);
+      B[i][j] = AddLogarithmicSos2Constraint(
+          prog, lambda[i][j].template cast<symbolic::Expression>());
+      // R(i, j) = φᵀ * λ[i][j]
+      prog->AddLinearConstraint(
+          R(i, j) -
+              phi.dot(lambda[i][j].template cast<symbolic::Expression>()) ==
+          0);
+    }
+  }
+  for (int row = 0; row < 3; ++row) {
+    AddUnitLengthConstraintWithSos2Lambda(prog, phi, lambda[row][0],
+                                          lambda[row][1], lambda[row][2]);
+  }
+  for (int col = 0; col < 3; ++col) {
+    AddUnitLengthConstraintWithSos2Lambda(prog, phi, lambda[0][col],
+                                          lambda[1][col], lambda[2][col]);
+  }
+  AddOrthogonalAndCrossProductConstraintRelaxationReplacingBilinearProduct<
+      kNumIntervalsPerHalfAxis>(prog, R, phi, B, lambda);
+
+  // If num_intervals_per_half_axis is a power of 2, then B[i][j](0) indicates
+  // the sign of R(i, j). Namely
+  // B[i][j](0) = 0 => R(i, j) <= 0
+  // B[i][j](0) = 1 => R(i, j) >= 0
+  // We can thus impose constraints on B[i][j](0).
+  if ((num_intervals_per_half_axis & (num_intervals_per_half_axis - 1)) == 0) {
+    // num_intervals_per_half_axis is a power of 2.
+
+    // Bpos(i, j) = sign(R(i, j)).
+    MatrixDecisionVariable<3, 3> Bpos;
+    for (int i = 0; i < 3; ++i) {
+      for (int j = 0; j < 3; ++j) {
+        Bpos(i, j) = B[i][j](0);
+      }
+    }
+    AddNotInSameOrOppositeOrthantConstraint(prog, Bpos);
+    AddNotInSameOrOppositeOrthantConstraint(prog, Bpos.transpose());
+
+    AddCrossProductImpliedOrthantConstraint(prog, Bpos);
+    AddCrossProductImpliedOrthantConstraint(prog, Bpos.transpose());
+
+    // If num_intervals_per_half_axis is a power of 2, and it's >= 2, then
+    // B[i][j](1) = 1 => -0.5 <= R(i, j) <= 0.5. Furthermore, we know for
+    // each row/column of R, it cannot have all three entries in the interval
+    // [-0.5, 0.5], since that would imply the norm of the row/column being
+    // less than sqrt(3)/2. Thus, we have
+    // sum_i B[i][j](1) <= 2 and sum_j B[i][j](1) <= 2
+    if (num_intervals_per_half_axis >= 2) {
+      for (int i = 0; i < 3; ++i) {
+        symbolic::Expression row_sum{0};
+        symbolic::Expression col_sum{0};
+        for (int j = 0; j < 3; ++j) {
+          row_sum += B[i][j](1);
+          col_sum += B[j][i](1);
+        }
+        prog->AddLinearConstraint(row_sum <= 2);
+        prog->AddLinearConstraint(col_sum <= 2);
+      }
+    }
+  }
+
+  return std::make_pair(B, phi);
+}
+
+template AddRotationMatrixBilinearMcCormickMilpConstraintsReturn<
+    Eigen::Dynamic>::type
+AddRotationMatrixBilinearMcCormickMilpConstraints<Eigen::Dynamic>(
+    MathematicalProgram *prog,
+    const Eigen::Ref<const MatrixDecisionVariable<3, 3>> &R,
+    int num_intervals_per_half_axis);
+
+template AddRotationMatrixBilinearMcCormickMilpConstraintsReturn<
+    1>::type
+AddRotationMatrixBilinearMcCormickMilpConstraints<1>(
+    MathematicalProgram *prog,
+    const Eigen::Ref<const MatrixDecisionVariable<3, 3>> &R,
+    int num_intervals_per_half_axis);
+
+template AddRotationMatrixBilinearMcCormickMilpConstraintsReturn<
+    2>::type
+AddRotationMatrixBilinearMcCormickMilpConstraints<2>(
+    MathematicalProgram *prog,
+    const Eigen::Ref<const MatrixDecisionVariable<3, 3>> &R,
+    int num_intervals_per_half_axis);
+
+template AddRotationMatrixBilinearMcCormickMilpConstraintsReturn<
+    3>::type
+AddRotationMatrixBilinearMcCormickMilpConstraints<3>(
+    MathematicalProgram *prog,
+    const Eigen::Ref<const MatrixDecisionVariable<3, 3>> &R,
+    int num_intervals_per_half_axis);
+
+template AddRotationMatrixBilinearMcCormickMilpConstraintsReturn<4>::type
+AddRotationMatrixBilinearMcCormickMilpConstraints<4>(
+    MathematicalProgram* prog,
+    const Eigen::Ref<const MatrixDecisionVariable<3, 3>>& R,
+    int num_intervals_per_half_axis);
 }  // namespace solvers
 }  // namespace drake
