@@ -12,7 +12,7 @@ override_dh_auto_configure:
 
 override_dh_auto_build:
 	# This is probably more than we need for the packaging job but we can thin it out later.
-	bazel build //...
+	bazel build --compiler=gcc-5 //...
 
 override_dh_auto_install:
 	bazel run :install -- $(CURDIR)/debian/drake/opt/drake
