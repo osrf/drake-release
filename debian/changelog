@@ -1,3 +1,12 @@
+drake (0.9.11+20171130r8aa465d-1) xenial; urgency=medium
+
+  * Install all software under /opt/drake to mimic the current tarball
+  * Include /opt/drake in shlibdeps
+  * Need to compile using gcc. Clang defaults to c++11 ABI
+  * Imported Upstream version 0.9.11+20171130r8aa465d
+
+ -- Jose Luis Rivero <jrivero@osrfoundation.org>  Thu, 30 Nov 2017 16:08:19 +0100
+
 drake (0.9.11+20170810re2cc14b-1) xenial; urgency=medium
 
   * Imported Upstream version 0.9.11+20170810re2cc14b
