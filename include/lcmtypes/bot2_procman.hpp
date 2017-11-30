@@ -1,0 +1,12 @@
+#pragma once
+#include <lcmtypes/bot_procman/command2_t.hpp>
+#include <lcmtypes/bot_procman/deputy_cmd2_t.hpp>
+#include <lcmtypes/bot_procman/deputy_cmd_t.hpp>
+#include <lcmtypes/bot_procman/discovery_t.hpp>
+#include <lcmtypes/bot_procman/info2_t.hpp>
+#include <lcmtypes/bot_procman/info_t.hpp>
+#include <lcmtypes/bot_procman/orders2_t.hpp>
+#include <lcmtypes/bot_procman/orders_t.hpp>
+#include <lcmtypes/bot_procman/printf_t.hpp>
+#include <lcmtypes/bot_procman/sheriff_cmd2_t.hpp>
+#include <lcmtypes/bot_procman/sheriff_cmd_t.hpp>
