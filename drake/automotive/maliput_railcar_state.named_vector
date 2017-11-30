@@ -1,0 +1,10 @@
+namespace: "drake::automotive"
+
+element {
+    name: "s"
+    doc: "The s-coordinate of the vehicle in a `Lane`-frame."
+}
+element {
+    name: "speed"
+    doc: "The speed of the vehicle in physical space."
+}
