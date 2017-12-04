@@ -69,6 +69,7 @@ Build-Depends: alien,
 	     python-sphinx,
 	     python-tk,
 	     python-yaml,
+             zip,
 	     zlib1g-dev,
 	     debhelper (>= 9)
 
