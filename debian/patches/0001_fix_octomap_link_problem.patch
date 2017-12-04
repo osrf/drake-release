@@ -5,7 +5,8 @@ index 08e5365..89f6432 100644
 @@ -35,7 +35,6 @@ content = """
        "Type": "dylib",
        "Location": "@prefix@/lib/libfcl.so",
-       "Includes": [ "@prefix@/include" ],
+-      "Includes": [ "@prefix@/include" ],
++      "Includes": [ "@prefix@/include" ]
 -      "Requires": [ "ccd:ccd", "Eigen3:Eigen", "octomap:octomap" ]
      }
    }
