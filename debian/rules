@@ -18,4 +18,4 @@ override_dh_auto_install:
 	bazel run :install -- $(CURDIR)/debian/drake/opt/drake
 
 override_dh_shlibdeps:
-	dh_shlibdeps -l $(CURDIR)/debian/drake/opt/drake
+	dh_shlibdeps -l $(CURDIR)/debian/drake/opt/drake/lib
