@@ -77,5 +77,7 @@ Build-Depends: alien,
 
 Package: drake
 Architecture: any
-Depends: ${shlibs:Depends}, ${misc:Depends}
+Depends: libtinyxml2-dev,
+         ${shlibs:Depends},
+         ${misc:Depends}
 Description: A planning, control, and analysis toolbox for nonlinear dynamical systems.
