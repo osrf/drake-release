@@ -1,3 +1,9 @@
+drake (0.9.11+20180117r86c88e-1) xenial; urgency=medium
+
+  * Imported Upstream version 0.9.11+20180117r86c88e
+
+ -- Jose Luis Rivero <jrivero@osrfoundation.org>  Wed, 17 Jan 2018 22:28:14 +0100
+
 drake (0.9.11+20171130rc388814-1) xenial; urgency=medium
 
   * Imported Upstream version 0.9.11+20171130rc388814
