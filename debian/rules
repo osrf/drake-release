@@ -48,14 +48,10 @@ override_dh_auto_configure:
 	true
 
 override_dh_auto_build:
-	# running twice. There is weird error when running for the first time
-	bazel run :install -- $(CURDIR)/debian/drake/opt/drake || bazel run :install -- $(CURDIR)/debian/drake/opt/drake
-
-	#bazel build --compiler=gcc-5 //...
+	bazel build --compiler=gcc-5 //...
 
 override_dh_auto_install:
-	# bazel run :install -- $(CURDIR)/debian/drake/opt/drake
-	true
+	bazel run :install -- $(CURDIR)/debian/drake/opt/drake
 
 override_dh_shlibdeps:
 	dh_shlibdeps -l $(CURDIR)/debian/drake/opt/drake/lib
