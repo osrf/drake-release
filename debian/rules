@@ -1,10 +1,44 @@
 #!/usr/bin/make -f
 
+## checkout from git (add "git" to Build-Depends)
+UURL = git://github.com/RobotLocomotion/drake.git
+UURL_BRANCH=refs/heads/master
+
+PKD  = $(abspath $(dir $(MAKEFILE_LIST)))
+PKG  = drake
+DATE = $(shell date +%Y%m%d)
+HASH = $(shell git ls-remote $(UURL) $(UURL_BRANCH) | cut -c 1-6)
+LATEST_VER ?= $(shell dpkg-parsechangelog -l debian/changelog | grep Version | sed -n 's/.* \([0-9]\+\.[0-9]\+\.[0-9]\+\)\+.*/\1/p')
+VER = $(LATEST_VER)+$(DATE)r$(HASH)
+
 .PHONY: override_dh_auto_clean \
         override_dh_auto_configure \
         override_dh_auto_build \
         override_dh_auto_install \
-        override_dh_shlibdeps
+        override_dh_shlibdeps \
+        get-orig-source
+
+get-orig-source: $(PKG)_$(VER).orig.tar.xz $(info I: $(PKG)_$(VER))
+	@
+
+$(PKG)_$(VER).orig.tar.xz:
+	$(if $(wildcard $(PKG)-$(VER)),$(error $(PKG)-$(VER) exist, aborting..))
+	@echo "# Downloading ${PKG} repo ..."
+	git clone $(UURL) $(PKG)-$(VER) \
+	|| $(RM) -r $(PKG)-$(VER)
+	cd $(PKG)-$(VER) \
+	&& git checkout master \
+	&& echo "# Setting times..." \
+	&& git ls-tree -r --name-only HEAD | while read F ; do touch --no-dereference -d "$$(git log -1 --format="%ai" -- "$$F")" "$$F"; done \
+	&& echo "# Cleaning-up..." \
+	&& $(RM) -r -v \
+	notneededdir/unwantedfile1 \
+	notneededdir/unwantedfiles.* \
+	&& $(RM) -r .git .git*
+	@echo "# Packing..."
+	find -L "$(PKG)-$(VER)" -xdev -type f -print | LC_ALL=C sort \
+	| XZ_OPT="-6v" tar -caf "$(PKG)_$(VER).orig.tar.xz" -T- --owner=root --group=root --mode=a+rX \
+	&& $(RM) -r "$(PKG)-$(VER)"
 
 override_dh_auto_clean:
 	bazel clean
