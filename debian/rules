@@ -1,17 +1,23 @@
 #!/usr/bin/make -f
 
+.PHONY: override_dh_auto_clean \
+        override_dh_auto_configure \
+        override_dh_auto_build \
+        override_dh_auto_install \
+        override_dh_shlibdeps
+
 %:
-	dh $@
+	dh $@ --parallel
 
 override_dh_auto_clean:
 	bazel clean
 
 override_dh_auto_configure:
-	# no configure step for bazel afaict
+	# no configure step for bazel
 	true
 
 override_dh_auto_build:
-	# This is probably more than we need for the packaging job but we can thin it out later.
+	# This is probably more than we need for the packaging job 
 	bazel build --compiler=gcc-5 //...
 
 override_dh_auto_install:
