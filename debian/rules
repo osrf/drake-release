@@ -16,6 +16,7 @@ VER = $(LATEST_VER)+$(DATE)r$(HASH)
         override_dh_auto_build \
         override_dh_auto_install \
         override_dh_shlibdeps \
+        override_dh_strip \
         get-orig-source
 
 get-orig-source: $(PKG)_$(VER).orig.tar.xz $(info I: $(PKG)_$(VER))
@@ -52,6 +53,12 @@ override_dh_auto_build:
 
 override_dh_auto_install:
 	bazel run :install -- $(CURDIR)/debian/drake/opt/drake
+
+override_dh_strip:
+	# strip is failing with an error:
+	# Not enough room for program headers, try linking with -N
+	# pointing to drake/plugins/designer/libQVTKWidgetPlugin.so
+	dh_strip --exclude=VTK
 
 override_dh_shlibdeps:
 	dh_shlibdeps -l $(CURDIR)/debian/drake/opt/drake/lib
