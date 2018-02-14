@@ -14,6 +14,7 @@ VER = $(LATEST_VER)+$(DATE)r$(HASH)
 .PHONY: override_dh_auto_clean \
         override_dh_auto_configure \
         override_dh_auto_build \
+        override_dh_auto_install \
         override_dh_shlibdeps \
         get-orig-source
 
@@ -47,7 +48,10 @@ override_dh_auto_configure:
 	true
 
 override_dh_auto_build:
-	bazel run :install --compiler=gcc-5 -- $(CURDIR)/debian/tmp/opt/drake
+	bazel build --compiler=gcc-5 //...
+
+override_dh_auto_install:
+	bazel run :install -- $(CURDIR)/debian/drake/opt/drake
 
 override_dh_shlibdeps:
 	dh_shlibdeps -l $(CURDIR)/debian/drake/opt/drake/lib
